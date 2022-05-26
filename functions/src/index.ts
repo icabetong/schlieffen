@@ -54,76 +54,88 @@ type User = {
 type UserData = User & {
   userId: string
 }
-type UserRequestData = User & {
+type UserRequest= User & {
   token: string,
 }
-exports.createUser = functions.https.onCall(async (data: UserRequestData, c) => {
-  const { token, ...user } = data;
+exports.createUser = functions.https.onCall(async (data: UserRequest, c) => {
+  const {token, ...user} = data;
 
   try {
-    let decodedToken = await admin.auth().verifyIdToken(token);
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    const userDoc = await admin.firestore().collection("users")
+        .doc(decodedToken.uid).get();
 
-    const userDoc = await admin.firestore().collection('users')
-      .doc(decodedToken.uid).get();
-    if (!userDoc.exists)
-      throw Error();
+    if (userDoc.exists) {
+      const userData = userDoc.data() as UserData;
+      if (hasPermission(userData.permissions, 16)) {
+        const password = randomPassword();
+        const createdUser = await admin.auth().createUser({
+          uid: userData.userId,
+          email: user.email,
+          password: password,
+        });
+        const newUser: UserData = {
+          ...user,
+          userId: createdUser.uid,
+        };
+        await admin.firestore().collection("users")
+            .doc(newUser.userId).set(newUser);
 
-    const userData = userDoc.data() as UserData;
-    const newId = randomUserId();
-    if (hasPermission(userData.permissions, 16)) {
-      const newUser: UserData = {
-        ...user,
-        userId: newId,
-      }
+        const transporter = nodemailer.createTransport({
+          service: "gmail",
+          auth: {
+            user: source,
+            pass: passkey,
+          },
+        });
+        const email = {
+          from: source,
+          to: newUser.email,
+          subject: "Your New Ludendorff Account",
+          html: `Use this password for your account: 
+          <strong>${password}</strong>`
+        };
 
-      const password = randomPassword();
-      await admin.auth().createUser({
-        uid: userData.userId,
-        email: user.email,
-        password: password,
-      });
-      await admin.firestore().collection('users')
-        .doc(newId).set(newUser);
-
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: source,
-          pass: passkey,
-        }
-      });
-      const email = {
-        from: source,
-        to: newUser.email,
-        subject: "Your New Ludendorff Account",
-        html: `Use this password for your account: <strong>${password}</strong>`
-      }
-
-      await transporter.sendMail(email);
-    } else throw Error();
+        await transporter.sendMail(email);
+      } else throw Error();
+    }
   } catch (error) {
-    throw new functions.https.HttpsError(
-      'unknown', `${error}`, error
-    );
+      throw new functions.https.HttpsError(
+        "unknown", `${error}`, error
+      );
   }
 });
 
+/**
+ * 
+ * @param permissions the array of permissions 
+ * @param permission  the permission itself
+ * @returns true if the permission requested is in the permission array
+ */
 function hasPermission(permissions: number[], permission: number) {
   return permissions.includes(permission) ||
     permissions.includes(32);
 }
+/**
+ * 
+ * @returns a random generated user id string
+ */
 function randomUserId() {
   const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  var id = '';
-  for (var i = 0; i < 28; i++) {
+  let id = "";
+  for (let i = 0; i < 28; i++) {
     id += characters.charAt(Math.floor(Math.random() * characters.length));
   }
   return id;
 }
+/**
+ * 
+ * @returns a secure random generated password string
+ */
 function randomPassword() {
   const characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*_-+=";
-  var password = '';
-  for (var i = 0; i < 8; i++) {
+  let password = "";
+  for (let i = 0; i < 8; i++) {
     password += characters.charAt(Math.floor(Math.random() * characters.length));
   }
   return password;
