@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+	match /databases/{database}/documents {
+
+		function isAuthenticated() {
+    	return request.auth != null;
+    }
+    function fetchPermissions(uid) {
+    	return get(/databases/$(database)/documents/users/$(uid)).data.permissions
+    }
+    function canRead() {
+    	let permissions = fetchPermissions(request.auth.uid);
+    	return 1 in permissions || 16 in permissions;
+    }
+    function canWrite() {
+    	let permissions = fetchPermissions(request.auth.uid);
+    	return 2 in permissions || 16 in permissions;
+    }
+    function canDelete() {
+    	let permissions = fetchPermissions(request.auth.uid);
+    	return 4 in permissions || 16 in permissions;
+    }
+    function canWriteToUser(resource) {
+    	let permissions = fetchPermissions(request.auth.uid);
+      return 16 in permissions || 8 in permissions || !request.resource.data.diff(resource.data).affectedKeys()
+        	.hasAny(['permissions'])
+    }
+    function isAdmin() {
+    	let permissions = fetchPermissions(request.auth.uid);
+      return 16 in permissions;
+    }
+  
+  	match /issued/{inventoryReportId} {
+    	allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && canWrite();
+      allow delete: if isAuthenticated() && canDelete();
+      
+      match /issuedItems/{itemid} {
+      	allow read: if isAuthenticated();
+      	allow write: if isAuthenticated() && canWrite();
+      	allow delete: if isAuthenticated() && canDelete();
+      }
+    }
+  	match /inventories/{inventoryReportId} {
+    	allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && canWrite();
+      allow delete: if isAuthenticated() && canDelete();
+      
+      match /inventoryItems/{itemid} {
+      	allow read: if isAuthenticated();
+      	allow write: if isAuthenticated() && canWrite();
+      	allow delete: if isAuthenticated() && canDelete();
+      }
+    }
+    match /cards/{stockCardId} {
+    	allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && canWrite();
+      allow delete: if isAuthenticated() && canDelete();
+      
+      match /entries/{entryId} {
+      	allow read: if isAuthenticated();
+      	allow write: if isAuthenticated() && canWrite();
+      	allow delete: if isAuthenticated() && canDelete();
+      }
+    }
+  	match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && canWriteToUser(resource);
+    }
+    match /categories/{document=**} {
+    	allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && canWrite();
+      allow delete: if resource.data.count < 1 && isAuthenticated() && canDelete();
+    }
+    match /assets/{document=**} {
+    	allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && canWrite();
+    }
+    match /departments/{document=**} {
+    	allow read: if isAuthenticated() && canRead();
+      allow write: if request.auth != null;
+    }
+    match /requests/{document=**} {
+    	allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    match /core/{document=**} {
+    	allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}
