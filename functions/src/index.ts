@@ -11,7 +11,7 @@ admin.initializeApp();
 const appId = functions.config().app.id;
 const apiKey = functions.config().app.key;
 const source = functions.config().email.source;
-const passkey = functions.config().email.password;
+const passkey = functions.config().email.passkey;
 const algoliaClient = algoliasearch(appId, apiKey);
 
 const inventoryIndex = algoliaClient.initIndex("inventories");
@@ -23,21 +23,21 @@ type Data = {
   entries: any[],
 }
 
-exports.indexInventory = functions.https.onCall(async (data: Data, c) => {
+exports.indexInventory = functions.https.onCall(async (data: Data) => {
   await inventoryIndex.partialUpdateObject({
     inventoryItems: data.entries,
     objectID: data.id,
   });
 });
 
-exports.indexIssued = functions.https.onCall(async (data: Data, c) => {
+exports.indexIssued = functions.https.onCall(async (data: Data) => {
   await issuedIndex.partialUpdateObject({
     issuedItems: data.entries,
     objectID: data.id,
   });
 });
 
-exports.indexStockCard = functions.https.onCall(async (data: Data, c) => {
+exports.indexStockCard = functions.https.onCall(async (data: Data) => {
   await stockCardIndex.partialUpdateObject({
     entries: data.entries,
     objectID: data.id,
@@ -57,7 +57,7 @@ type UserData = User & {
 type UserRequest= User & {
   token: string,
 }
-exports.createUser = functions.https.onCall(async (data: UserRequest, c) => {
+exports.createUser = functions.https.onCall(async (data: UserRequest) => {
   const {token, ...user} = data;
 
   try {
@@ -70,7 +70,6 @@ exports.createUser = functions.https.onCall(async (data: UserRequest, c) => {
       if (hasPermission(userData.permissions, 16)) {
         const password = randomPassword();
         const createdUser = await admin.auth().createUser({
-          uid: userData.userId,
           email: user.email,
           password: password,
         });
@@ -106,6 +105,58 @@ exports.createUser = functions.https.onCall(async (data: UserRequest, c) => {
   }
 });
 
+type ModifyUserRequest = {
+  token: string,
+  userId: string,
+  disabled: boolean,
+}
+exports.modifyUser = functions.https.onCall(async (data: ModifyUserRequest) => {
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(data.token);
+    const userDoc = await admin.firestore().collection("users")
+      .doc(decodedToken.uid).get();
+
+    if (userDoc.exists) {
+      const user = userDoc.data() as UserData;
+      if (hasPermission(user.permissions, 16)) {
+        await admin.auth().updateUser(data.userId, {
+          disabled: data.disabled,
+        });
+        await admin.firestore().collection("users")
+          .doc(data.userId).update({ disabled: data.disabled });
+      } else throw Error();
+    } else throw Error();
+  } catch (error) {
+    throw new functions.https.HttpsError(
+      "unknown", `${error}`, error
+    );
+  }
+});
+
+type DeleteUserRequest = {
+  token: string,
+  userId: string
+}
+exports.deleteUser = functions.https.onCall(async (data: DeleteUserRequest) => {
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(data.token);
+    const userDoc = await admin.firestore().collection("users")
+      .doc(decodedToken.uid).get();
+
+    if (userDoc.exists) {
+      const user = userDoc.data() as UserData;
+      if (hasPermission(user.permissions, 16)) {
+        await admin.auth().deleteUser(data.userId);
+        await admin.firestore().collection("users")
+          .doc(data.userId).delete();
+      } else throw Error();
+    } else throw Error();
+  } catch (error) {
+    throw new functions.https.HttpsError(
+      "unknown", `${error}`, error
+    );
+  }
+})
 /**
  * 
  * @param permissions the array of permissions 
@@ -115,18 +166,6 @@ exports.createUser = functions.https.onCall(async (data: UserRequest, c) => {
 function hasPermission(permissions: number[], permission: number) {
   return permissions.includes(permission) ||
     permissions.includes(32);
-}
-/**
- * 
- * @returns a random generated user id string
- */
-function randomUserId() {
-  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let id = "";
-  for (let i = 0; i < 28; i++) {
-    id += characters.charAt(Math.floor(Math.random() * characters.length));
-  }
-  return id;
 }
 /**
  * 
