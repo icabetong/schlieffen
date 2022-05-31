@@ -186,35 +186,12 @@ type InventoryReport = {
   accountabilityDate?: admin.firestore.Timestamp,
   auth?: AuthData
 }
-type InventoryReportItem = {
-  stockNumber: string,
-  article?: string,
-  description?: string,
-  category?: CategoryCore,
-  unitOfMeasure?: string,
-  unitValue: number,
-  balancePerCard: number,
-  onHandCount: number,
-  remarks?: string,
-  supplier?: string,
-  auth?: AuthData
-}
 type IssuedReport = {
   issuedReportId: string,
   entityName?: string,
   fundCluster?: string,
   serialNumber?: string,
   date?: admin.firestore.Timestamp,
-  auth?: AuthData
-}
-type IssuedReportItem = {
-  issuedReportItemId: string,
-  stockNumber: string,
-  description?: string,
-  unitOfMeasure?: string,
-  quantityIssued: number,
-  unitCost: number,
-  responsibilityCenter?: string,
   auth?: AuthData
 }
 type StockCard = {
@@ -227,19 +204,11 @@ type StockCard = {
   balances: any,
   auth?: AuthData
 }
-type StockCardEntry = {
-  stockCardEntryId: string,
-  date?: admin.firestore.Firestore,
-  reference?: string,
-  receivedQuantity: number,
-  requestedQuantity: number,
-  issueQuantity: number,
-  issueOffice?: string,
-  inventoryReportSourceId?: string,
+type FirestoreUser = UserData & {
   auth?: AuthData
 }
 
-type DataType = "asset" | "inventory" | "inventoryItem" | "issued" | "issuedItem" | "stockCard" | "stockCardEntry";
+type DataType = "asset" | "inventory" | "inventoryItem" | "issued" | "issuedItem" | "stockCard" | "stockCardEntry" | "user";
 type Operation = "create" | "update" | "remove";
 type OperationData<T> = {
   before?: T,
@@ -621,6 +590,98 @@ exports.logStockCard = functions.firestore.document("cards/{stockCardId}").onWri
     }
   } catch (error) {
     functions.logger.error("stockCards:error:" + error);
+  }
+});
+exports.logUser = functions.firestore.document("users/{userId}").onWrite(async (change) => {
+  try {
+    const { before, after } = change;
+
+    if (before.exists && after.exists) {
+      // update event
+      const beforeData = before.data() as FirestoreUser;
+      const afterData = after.data() as FirestoreUser;
+
+      delete beforeData.auth;
+      const { auth, ...user } = afterData;
+      if (!afterData?.auth) {
+        functions.logger.error("user:update: No AuthData defined");
+        return;
+      }
+
+      const logEntry: LogEntry<FirestoreUser> = {
+        logEntryId: randomId(),
+        user: afterData.auth,
+        dataType: "user",
+        identifier: beforeData.userId,
+        data: {
+          before: beforeData,
+          after: user,
+        },
+        timestamp: admin.firestore.Timestamp.now(),
+        operation: "update"
+      }
+  
+      await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
+      await admin.firestore().collection("users").doc(user.userId).update({
+        auth: admin.firestore.FieldValue.delete()
+      });
+
+    } else if (!after.exists) {
+      // delete event
+      const beforeData = before.data() as FirestoreUser;
+      const { auth, ...user } = beforeData;
+      if (!auth) {
+        functions.logger.error("user:remove: No AuthData defined");
+        return;
+      }
+
+      delete beforeData.auth;
+      const logEntry: LogEntry<FirestoreUser> = {
+        logEntryId: randomId(),
+        user: auth,
+        dataType: "user",
+        identifier: user.userId,
+        data: {
+          before: user,
+        },
+        timestamp: admin.firestore.Timestamp.now(),
+        operation: "remove"
+      }
+
+      await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
+      await admin.firestore().collection("users").doc(user.userId).update({
+        auth: admin.firestore.FieldValue.delete()
+      });
+
+    } else {
+      // create event
+      const afterData = after.data() as FirestoreUser;
+      const { auth, ...user } = afterData;
+      if (!auth) {
+        functions.logger.error("user:create: No AuthData defined");
+        return;
+      }
+
+      const logEntry: LogEntry<FirestoreUser> = {
+        logEntryId: randomId(),
+        user: auth,
+        dataType: "user",
+        identifier: user.userId,
+        data: {
+          before: user,
+        },
+        timestamp: admin.firestore.Timestamp.now(),
+        operation: "create"
+      }
+      
+      await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
+      await admin.firestore().collection("users").doc(user.userId).update({
+        auth: admin.firestore.FieldValue.delete()
+      });
+
+    }
+  } catch (error) {
+    functions.logger.error("user:error:" + error);
   }
 });
 
