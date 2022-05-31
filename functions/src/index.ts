@@ -715,7 +715,7 @@ exports.logIssuedItem = functions.firestore.document("issued/{id}/issuedItems/{i
     functions.logger.error("issuedItem:error:" + error);
   }
 });
-exports.logIssuedItem = functions.firestore.document("cards/{stockCardId}").onWrite(async (change) => {
+exports.logStockCard = functions.firestore.document("cards/{stockCardId}").onWrite(async (change) => {
   try {
     const { before, after } = change;
 
