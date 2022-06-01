@@ -620,7 +620,7 @@ exports.logUser = functions.firestore.document("users/{userId}").onWrite(async (
  */
 function hasPermission(permissions: number[], permission: number) {
   return permissions.includes(permission) ||
-    permissions.includes(32);
+    permissions.includes(8);
 }
 /**
  * @returns string the generated id
