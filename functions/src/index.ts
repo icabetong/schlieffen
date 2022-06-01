@@ -208,7 +208,7 @@ type FirestoreUser = UserData & {
   auth?: AuthData
 }
 
-type DataType = "asset" | "inventory" | "inventoryItem" | "issued" | "issuedItem" | "stockCard" | "stockCardEntry" | "user";
+type DataType = "asset" | "inventory" | "issued" | "stockCard" | "user";
 type Operation = "create" | "update" | "remove";
 type OperationData<T> = {
   before?: T,
