@@ -232,9 +232,9 @@ exports.logAsset = functions.firestore.document("assets/{assetId}").onWrite(asyn
       // update event
       const beforeData = before.data() as Asset;
       const afterData = after.data() as Asset;
+      functions.logger.info(beforeData);
+      functions.logger.info(afterData);
 
-      delete beforeData.auth;
-      const { auth, ...asset } = afterData;
       if (!afterData?.auth) {
         functions.logger.error("asset:update: No AuthData defined");
         return;
@@ -247,69 +247,58 @@ exports.logAsset = functions.firestore.document("assets/{assetId}").onWrite(asyn
         identifier: beforeData.stockNumber,
         data: {
           before: beforeData,
-          after: asset,
+          after: afterData,
         },
         timestamp: admin.firestore.Timestamp.now(),
         operation: "update"
       }
   
       await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
-      await admin.firestore().collection("assets").doc(asset.stockNumber).update({
-        auth: admin.firestore.FieldValue.delete()
-      });
 
     } else if (!after.exists) {
       // delete event
       const beforeData = before.data() as Asset;
-      const { auth, ...asset } = beforeData;
-      if (!auth) {
+      functions.logger.info(beforeData);
+      if (!beforeData?.auth) {
         functions.logger.error("asset:remove: No AuthData defined");
         return;
       }
 
-      delete beforeData.auth;
       const logEntry: LogEntry<Asset> = {
         logEntryId: randomId(),
-        user: auth,
+        user: beforeData.auth,
         dataType: "asset",
-        identifier: asset.stockNumber,
+        identifier: beforeData.stockNumber,
         data: {
-          before: asset,
+          before: beforeData,
         },
         timestamp: admin.firestore.Timestamp.now(),
         operation: "remove"
       }
 
       await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
-      await admin.firestore().collection("assets").doc(asset.stockNumber).update({
-        auth: admin.firestore.FieldValue.delete()
-      });
-
     } else {
       // create event
       const afterData = after.data() as Asset;
-      const { auth, ...asset } = afterData;
-      if (!auth) {
+      functions.logger.info(afterData);
+      if (!afterData?.auth) {
         functions.logger.error("asset:create: No AuthData defined");
         return;
       }
 
       const logEntry: LogEntry<Asset> = {
         logEntryId: randomId(),
-        user: auth,
+        user: afterData?.auth,
         dataType: "asset",
         identifier: afterData.stockNumber,
         data: {
-          before: asset,
+          before: afterData,
         },
         timestamp: admin.firestore.Timestamp.now(),
         operation: "create"
       }
       
       await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
-      await admin.firestore().collection("assets").doc(asset.stockNumber).update({
-        auth: admin.firestore.FieldValue.delete()
-      });
 
     }
   } catch (error) {
@@ -324,9 +313,6 @@ exports.logInventory = functions.firestore.document("inventories/{inventoryRepor
       // update event
       const beforeData = before.data() as InventoryReport;
       const afterData = after.data() as InventoryReport;
-
-      delete beforeData.auth;
-      const { auth, ...report } = afterData;
       if (!afterData?.auth) {
         functions.logger.error("inventory:update: No AuthData defined");
         return;
@@ -339,70 +325,57 @@ exports.logInventory = functions.firestore.document("inventories/{inventoryRepor
         identifier: beforeData.inventoryReportId,
         data: {
           before: beforeData,
-          after: report,
+          after: afterData,
         },
         timestamp: admin.firestore.Timestamp.now(),
         operation: "update"
       }
   
       await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
-      await admin.firestore().collection("inventories").doc(report.inventoryReportId).update({
-        auth: admin.firestore.FieldValue.delete()
-      });
 
     } else if (!after.exists) {
       // delete event
       const beforeData = before.data() as InventoryReport;
-      const { auth, ...report } = beforeData;
-      if (!auth) {
+      if (!beforeData?.auth) {
         functions.logger.error("inventory:remove: No AuthData defined");
         return;
       }
 
-      delete beforeData.auth;
       const logEntry: LogEntry<InventoryReport> = {
         logEntryId: randomId(),
-        user: auth,
+        user: beforeData.auth,
         dataType: "inventory",
-        identifier: report.inventoryReportId,
+        identifier: beforeData.inventoryReportId,
         data: {
-          before: report,
+          before: beforeData,
         },
         timestamp: admin.firestore.Timestamp.now(),
         operation: "remove"
       }
 
       await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
-      await admin.firestore().collection("inventories").doc(report.inventoryReportId).update({
-        auth: admin.firestore.FieldValue.delete()
-      });
 
     } else {
       // create event
       const afterData = after.data() as InventoryReport;
-      const { auth, ...report } = afterData;
-      if (!auth) {
+      if (!afterData?.auth) {
         functions.logger.error("inventory:create: No AuthData defined");
         return;
       }
 
       const logEntry: LogEntry<InventoryReport> = {
         logEntryId: randomId(),
-        user: auth,
+        user: afterData.auth,
         dataType: "inventory",
-        identifier: report.inventoryReportId,
+        identifier: afterData.inventoryReportId,
         data: {
-          before: report,
+          before: afterData,
         },
         timestamp: admin.firestore.Timestamp.now(),
         operation: "create"
       }
       
       await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
-      await admin.firestore().collection("inventories").doc(report.inventoryReportId).update({
-        auth: admin.firestore.FieldValue.delete()
-      });
-
     }
   } catch (error) {
     functions.logger.error("inventory:error:" + error);
@@ -416,9 +389,6 @@ exports.logIssued = functions.firestore.document("issued/{issuedReportId}").onWr
       // update event
       const beforeData = before.data() as IssuedReport;
       const afterData = after.data() as IssuedReport;
-
-      delete beforeData.auth;
-      const { auth, ...report } = afterData;
       if (!afterData?.auth) {
         functions.logger.error("issued:update: No AuthData defined");
         return;
@@ -431,70 +401,57 @@ exports.logIssued = functions.firestore.document("issued/{issuedReportId}").onWr
         identifier: beforeData.issuedReportId,
         data: {
           before: beforeData,
-          after: report,
+          after: afterData,
         },
         timestamp: admin.firestore.Timestamp.now(),
         operation: "update"
       }
   
       await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
-      await admin.firestore().collection("issued").doc(report.issuedReportId).update({
-        auth: admin.firestore.FieldValue.delete()
-      });
 
     } else if (!after.exists) {
       // delete event
       const beforeData = before.data() as IssuedReport;
-      const { auth, ...report } = beforeData;
-      if (!auth) {
+      if (!beforeData?.auth) {
         functions.logger.error("issued:remove: No AuthData defined");
         return;
       }
 
-      delete beforeData.auth;
       const logEntry: LogEntry<IssuedReport> = {
         logEntryId: randomId(),
-        user: auth,
+        user: beforeData.auth,
         dataType: "issued",
-        identifier: report.issuedReportId,
+        identifier: beforeData.issuedReportId,
         data: {
-          before: report,
+          before: beforeData,
         },
         timestamp: admin.firestore.Timestamp.now(),
         operation: "remove"
       }
 
       await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
-      await admin.firestore().collection("issued").doc(report.issuedReportId).update({
-        auth: admin.firestore.FieldValue.delete()
-      });
 
     } else {
       // create event
       const afterData = after.data() as IssuedReport;
-      const { auth, ...report } = afterData;
-      if (!auth) {
+      if (!afterData?.auth) {
         functions.logger.error("issued:create: No AuthData defined");
         return;
       }
 
       const logEntry: LogEntry<IssuedReport> = {
         logEntryId: randomId(),
-        user: auth,
+        user: afterData.auth,
         dataType: "issued",
-        identifier: report.issuedReportId,
+        identifier: afterData.issuedReportId,
         data: {
-          before: report,
+          before: afterData,
         },
         timestamp: admin.firestore.Timestamp.now(),
         operation: "create"
       }
       
       await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
-      await admin.firestore().collection("issued").doc(report.issuedReportId).update({
-        auth: admin.firestore.FieldValue.delete()
-      });
-
     }
   } catch (error) {
     functions.logger.error("issued:error:" + error);
@@ -508,9 +465,6 @@ exports.logStockCard = functions.firestore.document("cards/{stockCardId}").onWri
       // update event
       const beforeData = before.data() as StockCard;
       const afterData = after.data() as StockCard;
-
-      delete beforeData.auth;
-      const { auth, ...report } = afterData;
       if (!afterData?.auth) {
         functions.logger.error("stockCard:update: No AuthData defined");
         return;
@@ -523,69 +477,57 @@ exports.logStockCard = functions.firestore.document("cards/{stockCardId}").onWri
         identifier: afterData.stockCardId,
         data: {
           before: beforeData,
-          after: report,
+          after: afterData,
         },
         timestamp: admin.firestore.Timestamp.now(),
         operation: "update"
       }
   
       await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
-      await admin.firestore().collection("cards").doc(report.stockCardId).update({
-        auth: admin.firestore.FieldValue.delete()
-      });
 
     } else if (!after.exists) {
       // delete event
       const beforeData = before.data() as StockCard;
-      const { auth, ...report } = beforeData;
-      if (!auth) {
+      if (!beforeData?.auth) {
         functions.logger.error("stockCards:remove: No AuthData defined");
         return;
       }
 
-      delete beforeData.auth;
       const logEntry: LogEntry<StockCard> = {
         logEntryId: randomId(),
-        user: auth,
+        user: beforeData.auth,
         dataType: "stockCard",
         identifier: beforeData.stockCardId,
         data: {
-          before: report,
+          before: beforeData,
         },
         timestamp: admin.firestore.Timestamp.now(),
         operation: "remove"
       }
 
       await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
-      await admin.firestore().collection("cards").doc(report.stockCardId).update({
-        auth: admin.firestore.FieldValue.delete()
-      });
 
     } else {
       // create event
       const afterData = after.data() as StockCard;
-      const { auth, ...report } = afterData;
-      if (!auth) {
+      if (!afterData?.auth) {
         functions.logger.error("stockCards:create: No AuthData defined");
         return;
       }
 
       const logEntry: LogEntry<StockCard> = {
         logEntryId: randomId(),
-        user: auth,
+        user: afterData.auth,
         dataType: "stockCard",
         identifier: afterData.stockCardId,
         data: {
-          before: report,
+          before: afterData,
         },
         timestamp: admin.firestore.Timestamp.now(),
         operation: "create"
       }
       
       await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
-      await admin.firestore().collection("cards").doc(report.stockCardId).update({
-        auth: admin.firestore.FieldValue.delete()
-      });
 
     }
   } catch (error) {
@@ -600,9 +542,6 @@ exports.logUser = functions.firestore.document("users/{userId}").onWrite(async (
       // update event
       const beforeData = before.data() as FirestoreUser;
       const afterData = after.data() as FirestoreUser;
-
-      delete beforeData.auth;
-      const { auth, ...user } = afterData;
       if (!afterData?.auth) {
         functions.logger.error("user:update: No AuthData defined");
         return;
@@ -615,69 +554,57 @@ exports.logUser = functions.firestore.document("users/{userId}").onWrite(async (
         identifier: beforeData.userId,
         data: {
           before: beforeData,
-          after: user,
+          after: afterData,
         },
         timestamp: admin.firestore.Timestamp.now(),
         operation: "update"
       }
   
       await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
-      await admin.firestore().collection("users").doc(user.userId).update({
-        auth: admin.firestore.FieldValue.delete()
-      });
 
     } else if (!after.exists) {
       // delete event
       const beforeData = before.data() as FirestoreUser;
-      const { auth, ...user } = beforeData;
-      if (!auth) {
+      if (!beforeData?.auth) {
         functions.logger.error("user:remove: No AuthData defined");
         return;
       }
 
-      delete beforeData.auth;
       const logEntry: LogEntry<FirestoreUser> = {
         logEntryId: randomId(),
-        user: auth,
+        user: beforeData.auth,
         dataType: "user",
-        identifier: user.userId,
+        identifier: beforeData.userId,
         data: {
-          before: user,
+          before: beforeData,
         },
         timestamp: admin.firestore.Timestamp.now(),
         operation: "remove"
       }
 
       await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
-      await admin.firestore().collection("users").doc(user.userId).update({
-        auth: admin.firestore.FieldValue.delete()
-      });
 
     } else {
       // create event
       const afterData = after.data() as FirestoreUser;
-      const { auth, ...user } = afterData;
-      if (!auth) {
+      if (!afterData?.auth) {
         functions.logger.error("user:create: No AuthData defined");
         return;
       }
 
       const logEntry: LogEntry<FirestoreUser> = {
         logEntryId: randomId(),
-        user: auth,
+        user: afterData.auth,
         dataType: "user",
-        identifier: user.userId,
+        identifier: afterData.userId,
         data: {
-          before: user,
+          before: afterData,
         },
         timestamp: admin.firestore.Timestamp.now(),
         operation: "create"
       }
       
       await admin.firestore().collection("logs").doc(logEntry.logEntryId).set(logEntry);
-      await admin.firestore().collection("users").doc(user.userId).update({
-        auth: admin.firestore.FieldValue.delete()
-      });
 
     }
   } catch (error) {
